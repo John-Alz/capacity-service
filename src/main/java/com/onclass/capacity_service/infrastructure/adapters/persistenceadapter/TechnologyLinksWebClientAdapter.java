@@ -18,7 +18,7 @@ public class TechnologyLinksWebClientAdapter implements TechnologyLinksPort {
         System.out.println("TCHIDS MS CAP WEBCLIENTADAP: " + technologyIds);
         var body = new CapacityTechnologyRequestDTO(technologyIds);
 
-        return technologyWebClient.put()
+        return technologyWebClient.post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/capacity-technologies/{capacityId}")
                         .build(capacityId))
