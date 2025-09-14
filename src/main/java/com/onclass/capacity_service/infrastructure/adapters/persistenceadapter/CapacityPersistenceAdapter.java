@@ -15,7 +15,9 @@ public class CapacityPersistenceAdapter implements CapacityPersistencePort {
 
     @Override
     public Mono<Capacity> saveCapacity(Capacity capacity) {
+        System.out.println("LLega al adapter: " + capacity);
         return capacityRepository.save(capacityEntityMapper.toEntity(capacity))
+                .doOnNext(capacity1 -> System.out.println("LLega al adapter v2: " + capacity))
                 .map(capacityEntityMapper::toModel);
     }
 }
