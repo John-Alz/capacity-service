@@ -6,7 +6,6 @@ public record Capacity(Long id, String name, String description, List<Long> tech
 
     public Capacity {
         technologyIds = (technologyIds == null) ? List.of() : List.copyOf(technologyIds);
-
     }
 
 }
