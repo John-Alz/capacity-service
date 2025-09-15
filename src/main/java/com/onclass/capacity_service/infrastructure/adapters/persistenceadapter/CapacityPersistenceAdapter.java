@@ -2,9 +2,12 @@ package com.onclass.capacity_service.infrastructure.adapters.persistenceadapter;
 
 import com.onclass.capacity_service.domain.model.Capacity;
 import com.onclass.capacity_service.domain.spi.CapacityPersistencePort;
+import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.entity.CapacityEntity;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.mapper.CapacityEntityMapper;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.repository.CapacityRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.r2dbc.core.DatabaseClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
@@ -12,6 +15,7 @@ public class CapacityPersistenceAdapter implements CapacityPersistencePort {
 
     private final CapacityRepository capacityRepository;
     private final CapacityEntityMapper capacityEntityMapper;
+    private final DatabaseClient db;
 
     @Override
     public Mono<Capacity> saveCapacity(Capacity capacity) {
@@ -19,5 +23,37 @@ public class CapacityPersistenceAdapter implements CapacityPersistencePort {
         return capacityRepository.save(capacityEntityMapper.toEntity(capacity))
                 .doOnNext(capacity1 -> System.out.println("LLega al adapter v2: " + capacity))
                 .map(capacityEntityMapper::toModel);
+    }
+
+    @Override
+    public Flux<Capacity> findPage(int page, int size, boolean ascByName) {
+        int offset = page * size;
+        String order = ascByName ? "ASC" : "DESC";
+
+        String sql = """
+                SELECT id, name, description
+                FROM capacities
+                ORDER BY name %s
+                LIMIT :limit OFFSET :offset
+                """.formatted(order);
+
+        return db.sql(sql)
+                .bind("limit", size)
+                .bind("offset", offset)
+                .map((row, meta) -> {
+                    CapacityEntity e = new CapacityEntity();
+                    e.setId(row.get("id", Long.class));
+                    e.setName(row.get("name", String.class));
+                    e.setDescription(row.get("description", String.class));
+                    return capacityEntityMapper.toModel(e);
+                })
+                .all();
+    }
+
+    @Override
+    public Mono<Long> count() {
+        return db.sql("SELECT COUNT(*) AS cnt FROM capacities")
+                .map((row, meta) -> row.get("cnt", Long.class))
+                .one();
     }
 }

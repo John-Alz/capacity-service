@@ -2,6 +2,7 @@ package com.onclass.capacity_service.infrastructure.entrypoints.handler;
 
 import com.onclass.capacity_service.domain.api.CapacityServicePort;
 import com.onclass.capacity_service.domain.exception.ValidationException;
+import com.onclass.capacity_service.domain.model.PageResult;
 import com.onclass.capacity_service.infrastructure.entrypoints.dto.request.CapacityRequestDTO;
 import com.onclass.capacity_service.infrastructure.entrypoints.exception.ExceptionResponse;
 import com.onclass.capacity_service.infrastructure.entrypoints.mapper.CapacityMapper;
@@ -33,6 +34,38 @@ public class CapacityHandler {
                         .created(URI.create("/capacity/" + dto.id()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(dto))
+                .onErrorResume(ValidationException.class, e -> ServerResponse
+                        .status(HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(new ExceptionResponse(
+                                LocalDateTime.now(),
+                                HttpStatus.BAD_REQUEST.value(),
+                                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                                e.getMessage()
+                        )));
+    }
+
+    public Mono<ServerResponse> listCapacity(ServerRequest request) {
+        int page = request.queryParam("page").map(Integer::parseInt).orElse(0);
+        int size = request.queryParam("size").map(Integer::parseInt).orElse(10);
+        String sortBy = request.queryParam("sortBy").orElse("name");
+        String order = request.queryParam("order").orElse("asc");
+
+        boolean ascByName = !"desc".equalsIgnoreCase(order) && !"technologyCount".equalsIgnoreCase(sortBy);
+        boolean sortByTechCnt = "technologyCount".equalsIgnoreCase(sortBy);
+        boolean ascTechCount  = !"desc".equalsIgnoreCase(order);
+
+        return capacityServicePort.listItems(page, size, ascByName, sortByTechCnt, ascTechCount)
+                .map(pageResult -> new PageResult<>(
+                        pageResult.page(),
+                        pageResult.size(),
+                        pageResult.total(),
+                        pageResult.items().stream().map(capacityMapper::toResponseWithTech).toList()
+                ))
+                .flatMap(body -> ServerResponse
+                        .ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(body))
                 .onErrorResume(ValidationException.class, e -> ServerResponse
                         .status(HttpStatus.BAD_REQUEST)
                         .contentType(MediaType.APPLICATION_JSON)

@@ -7,10 +7,12 @@ import com.onclass.capacity_service.domain.usecase.CapacityUseCase;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.CapacityPersistenceAdapter;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.TechnologyLinksWebClientAdapter;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.mapper.CapacityEntityMapper;
+import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.mapper.TechnologyLinksMapper;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.repository.CapacityRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Configuration
@@ -20,16 +22,18 @@ public class UseCasesConfig {
     private final CapacityRepository capacityRepository;
     private final CapacityEntityMapper capacityEntityMapper;
     private final WebClient technologyWebClient;
+    private final DatabaseClient db;
+    private final TechnologyLinksMapper technologyLinksMapper;
 
 
     @Bean
     public CapacityPersistencePort capacityPersistencePort() {
-        return new CapacityPersistenceAdapter(capacityRepository, capacityEntityMapper);
+        return new CapacityPersistenceAdapter(capacityRepository, capacityEntityMapper, db);
     }
 
     @Bean
     public TechnologyLinksPort technologyLinksPort() {
-        return new TechnologyLinksWebClientAdapter(technologyWebClient);
+        return new TechnologyLinksWebClientAdapter(technologyWebClient, technologyLinksMapper);
     }
 
     @Bean
