@@ -10,6 +10,8 @@ import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 public class CapacityPersistenceAdapter implements CapacityPersistencePort {
 
@@ -55,5 +57,11 @@ public class CapacityPersistenceAdapter implements CapacityPersistencePort {
         return db.sql("SELECT COUNT(*) AS cnt FROM capacities")
                 .map((row, meta) -> row.get("cnt", Long.class))
                 .one();
+    }
+
+    @Override
+    public Flux<Capacity> findByBootcampId(Long bootcampId) {
+        return capacityRepository.findBootcampId(bootcampId)
+                .map(capacityEntityMapper::toModel);
     }
 }

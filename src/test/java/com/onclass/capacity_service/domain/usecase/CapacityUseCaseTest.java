@@ -217,4 +217,86 @@ class CapacityUseCaseTest {
         verifyNoMoreInteractions(technologyLinksPort);
     }
 
+    // ---------- listCapacitiesSummary (coverage) ----------
+
+    @Test
+    void listCapacitiesSummary_returnsCapacitiesWithTheirTechnologies() {
+        // given
+        Long bootcampId = 777L;
+        var cap1 = new Capacity(1L, "BackEnd", "desc", List.of());
+        var cap2 = new Capacity(2L, "FrontEnd", "desc", List.of());
+
+        when(capacityPersistencePort.findByBootcampId(bootcampId))
+                .thenReturn(Flux.just(cap1, cap2));
+
+        when(technologyLinksPort.listByCapacityId(1L))
+                .thenReturn(Mono.just(List.of(
+                        new TechnologySummary(10L, "Java"),
+                        new TechnologySummary(11L, ".NET")
+                )));
+        when(technologyLinksPort.listByCapacityId(2L))
+                .thenReturn(Mono.just(List.of(
+                        new TechnologySummary(20L, "Angular"),
+                        new TechnologySummary(21L, "React")
+                )));
+
+        // when
+        var mono = useCase.listCapacitiesSummary(bootcampId);
+
+        // then
+        StepVerifier.create(mono)
+                .assertNext(list -> {
+                    assertThat(list).hasSize(2);
+
+                    var first = list.get(0);
+                    assertThat(first.id()).isEqualTo(1L);
+                    assertThat(first.name()).isEqualTo("BackEnd");
+                    assertThat(first.technologies()).extracting("name")
+                            .containsExactly("Java", ".NET");
+
+                    var second = list.get(1);
+                    assertThat(second.id()).isEqualTo(2L);
+                    assertThat(second.name()).isEqualTo("FrontEnd");
+                    assertThat(second.technologies()).extracting("name")
+                            .containsExactly("Angular", "React");
+                })
+                .verifyComplete();
+
+        verify(capacityPersistencePort).findByBootcampId(bootcampId);
+        verify(technologyLinksPort).listByCapacityId(1L);
+        verify(technologyLinksPort).listByCapacityId(2L);
+        verifyNoMoreInteractions(capacityPersistencePort, technologyLinksPort);
+    }
+
+    @Test
+    void listCapacitiesSummary_handlesEmptyTechnologies() {
+        // given
+        Long bootcampId = 888L;
+        var cap = new Capacity(41L, "Data Eng", "desc", List.of());
+
+        when(capacityPersistencePort.findByBootcampId(bootcampId))
+                .thenReturn(Flux.just(cap));
+
+        // Simulamos que el MS de tech devuelve Mono.empty()
+        when(technologyLinksPort.listByCapacityId(41L)).thenReturn(Mono.empty());
+
+        // when
+        var mono = useCase.listCapacitiesSummary(bootcampId);
+
+        // then
+        StepVerifier.create(mono)
+                .assertNext(list -> {
+                    assertThat(list).hasSize(1);
+                    var only = list.get(0);
+                    assertThat(only.id()).isEqualTo(41L);
+                    assertThat(only.name()).isEqualTo("Data Eng");
+                    // defaultIfEmpty(List.of()) => lista vacía, no null
+                    assertThat(only.technologies()).isEmpty();
+                })
+                .verifyComplete();
+
+        verify(capacityPersistencePort).findByBootcampId(bootcampId);
+        verify(technologyLinksPort).listByCapacityId(41L);
+        verifyNoMoreInteractions(capacityPersistencePort, technologyLinksPort);
+    }
 }

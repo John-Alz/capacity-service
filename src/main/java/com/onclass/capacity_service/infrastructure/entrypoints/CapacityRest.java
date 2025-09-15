@@ -23,4 +23,9 @@ public class CapacityRest {
         return route(GET("/capacities"), capacityHandler::listCapacity);
     }
 
+    @Bean
+    public RouterFunction<ServerResponse> capacitiesSummaryRoutes(CapacityHandler capacityHandler) {
+        return route(GET("/capacities-bootcamp/{bootcampId}"), capacityHandler::listCapacitiesSummary);
+    }
+
 }
