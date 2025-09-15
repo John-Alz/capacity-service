@@ -11,4 +11,6 @@ public interface CapacityPersistencePort {
     Flux<Capacity> findPage(int page, int size, boolean ascByName);
     Mono<Long> count();
 
+    Flux<Capacity> findByBootcampId(Long bootcampId);
+
 }

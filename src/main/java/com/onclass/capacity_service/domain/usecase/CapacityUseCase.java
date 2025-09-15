@@ -65,4 +65,16 @@ public class CapacityUseCase implements CapacityServicePort {
                                 new PageResult<>(page, size, tot, withTech))
         );
     }
+
+    @Override
+    public Mono<List<CapacityWithTechs>> listCapacitiesSummary(Long bootcampId) {
+        return capacityPersistencePort.findByBootcampId(bootcampId)
+                .concatMap(cap ->
+                        technologyLinksPort.listByCapacityId(cap.id())
+                                .defaultIfEmpty(List.of())
+                                .map(techs -> new CapacityWithTechs(
+                                        cap.id(), cap.name(), cap.description(), techs
+                                )))
+                .collectList();
+    }
 }
