@@ -5,4 +5,5 @@ public record CapacityBootcamp(
         Long capacityId,
         Long bootcampId
 ) {
+
 }

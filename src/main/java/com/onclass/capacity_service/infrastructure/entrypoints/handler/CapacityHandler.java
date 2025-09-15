@@ -53,7 +53,7 @@ public class CapacityHandler {
 
         boolean ascByName = !"desc".equalsIgnoreCase(order) && !"technologyCount".equalsIgnoreCase(sortBy);
         boolean sortByTechCnt = "technologyCount".equalsIgnoreCase(sortBy);
-        boolean ascTechCount  = !"desc".equalsIgnoreCase(order);
+        boolean ascTechCount = !"desc".equalsIgnoreCase(order);
 
         return capacityServicePort.listItems(page, size, ascByName, sortByTechCnt, ascTechCount)
                 .map(pageResult -> new PageResult<>(
@@ -77,4 +77,13 @@ public class CapacityHandler {
                         )));
     }
 
+    public Mono<ServerResponse> listCapacitiesSummary(ServerRequest request) {
+        Long bootcampId = Long.valueOf(request.pathVariable("bootcampId"));
+        return capacityServicePort.listCapacitiesSummary(bootcampId)
+                .map(capacityMapper::toCapacityResponsesSummary)
+                .flatMap(dtos -> ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dtos));
+
+    }
 }
