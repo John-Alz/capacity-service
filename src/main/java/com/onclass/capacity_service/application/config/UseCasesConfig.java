@@ -1,13 +1,18 @@
 package com.onclass.capacity_service.application.config;
 
+import com.onclass.capacity_service.domain.api.CapacityBootcampServicePort;
 import com.onclass.capacity_service.domain.api.CapacityServicePort;
+import com.onclass.capacity_service.domain.spi.CapacityBootcampPersistencePort;
 import com.onclass.capacity_service.domain.spi.CapacityPersistencePort;
 import com.onclass.capacity_service.domain.spi.TechnologyLinksPort;
+import com.onclass.capacity_service.domain.usecase.CapacityBootcampUseCase;
 import com.onclass.capacity_service.domain.usecase.CapacityUseCase;
+import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.CapacityBootcampPersistenceAdapter;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.CapacityPersistenceAdapter;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.TechnologyLinksWebClientAdapter;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.mapper.CapacityEntityMapper;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.mapper.TechnologyLinksMapper;
+import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.repository.CapacityBootcampRepository;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.repository.CapacityRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +29,7 @@ public class UseCasesConfig {
     private final WebClient technologyWebClient;
     private final DatabaseClient db;
     private final TechnologyLinksMapper technologyLinksMapper;
+    private final CapacityBootcampRepository capacityBootcampRepository;
 
 
     @Bean
@@ -39,6 +45,16 @@ public class UseCasesConfig {
     @Bean
     public CapacityServicePort capacityServicePort(CapacityPersistencePort capacityPersistencePort) {
         return new CapacityUseCase(capacityPersistencePort, technologyLinksPort());
+    }
+
+    @Bean
+    public CapacityBootcampPersistencePort capacityBootcampPersistencePort() {
+        return new CapacityBootcampPersistenceAdapter(capacityBootcampRepository);
+    }
+
+    @Bean
+    public CapacityBootcampServicePort capacityBootcampServicePort() {
+        return new CapacityBootcampUseCase(capacityBootcampPersistencePort());
     }
 
 }
