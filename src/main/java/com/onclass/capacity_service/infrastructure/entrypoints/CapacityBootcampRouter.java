@@ -4,8 +4,10 @@ import com.onclass.capacity_service.infrastructure.entrypoints.handler.CapacityB
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.server.RouterFunction;
+import org.springframework.web.reactive.function.server.RouterFunctions;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
+import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
 
@@ -13,8 +15,12 @@ import static org.springframework.web.reactive.function.server.RequestPredicates
 public class CapacityBootcampRouter {
 
     @Bean
-    public RouterFunction<ServerResponse> saveCapacitBootcamp(CapacityBootcampHandler handler) {
-        return route(POST("/capacity-bootcamps/{bootcampId}"), handler::saveCapacityBootcamp);
+    public RouterFunction<ServerResponse> capacityBootcampRoutes(CapacityBootcampHandler handler) {
+        return RouterFunctions.route()
+                .POST("/capacity-bootcamps/{bootcampId}", handler::saveCapacityBootcamp)
+                .DELETE("/capacity-links/bootcamp/{bootcampId}", handler::detachByBootcamp)
+                .build();
     }
+
 
 }

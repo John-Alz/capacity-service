@@ -77,4 +77,9 @@ public class CapacityUseCase implements CapacityServicePort {
                                 )))
                 .collectList();
     }
+
+    @Override
+    public Mono<DeleteBatchResult> deleteByIds(List<Long> ids) {
+        return capacityPersistencePort.deleteByIds(ids);
+    }
 }

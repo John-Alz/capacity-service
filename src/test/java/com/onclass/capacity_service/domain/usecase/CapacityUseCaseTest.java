@@ -18,6 +18,7 @@ import reactor.test.StepVerifier;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,22 +41,16 @@ class CapacityUseCaseTest {
 
     @Test
     void saveCapacity_happyPath_callsReplaceAllAndReturnsSaved() {
-        // given
         var req = new Capacity(null, "Backend", "Server side", List.of(1L, 2L, 3L));
         var saved = new Capacity(10L, "Backend", "Server side", List.of(1L, 2L, 3L));
 
         when(capacityPersistencePort.saveCapacity(req)).thenReturn(Mono.just(saved));
         when(technologyLinksPort.replaceAll(10L, List.of(1L, 2L, 3L))).thenReturn(Mono.empty());
 
-        // when
-        var mono = useCase.saveCapacity(req);
-
-        // then
-        StepVerifier.create(mono)
+        StepVerifier.create(useCase.saveCapacity(req))
                 .expectNext(saved)
                 .verifyComplete();
 
-        // verify replaceAll called with saved.id and original techIds
         verify(technologyLinksPort).replaceAll(10L, List.of(1L, 2L, 3L));
         verify(capacityPersistencePort).saveCapacity(req);
         verifyNoMoreInteractions(technologyLinksPort, capacityPersistencePort);
@@ -72,6 +67,42 @@ class CapacityUseCaseTest {
         verifyNoInteractions(capacityPersistencePort, technologyLinksPort);
     }
 
+    @Test
+    void saveCapacity_propagatesError_whenReplaceAllFails() {
+        var ids = List.of(7L, 8L, 9L);
+        var req = new Capacity(null, "Data", "desc", ids);
+        var saved = new Capacity(55L, "Data", "desc", ids);
+
+        when(capacityPersistencePort.saveCapacity(req)).thenReturn(Mono.just(saved));
+        when(technologyLinksPort.replaceAll(55L, ids))
+                .thenReturn(Mono.error(new RuntimeException("tech svc down")));
+
+        StepVerifier.create(useCase.saveCapacity(req))
+                .expectErrorMatches(e -> e instanceof RuntimeException &&
+                        e.getMessage().contains("tech svc down"))
+                .verify();
+
+        verify(capacityPersistencePort).saveCapacity(req);
+        verify(technologyLinksPort).replaceAll(55L, ids);
+        verifyNoMoreInteractions(capacityPersistencePort, technologyLinksPort);
+    }
+
+    @Test
+    void saveCapacity_passesTheExactIdsToReplaceAll() {
+        var ids = List.of(5L, 6L, 7L, 8L);
+        var req = new Capacity(null, "Data", "desc", ids);
+        var saved = new Capacity(99L, "Data", "desc", ids);
+
+        when(capacityPersistencePort.saveCapacity(req)).thenReturn(Mono.just(saved));
+        when(technologyLinksPort.replaceAll(eq(99L), eq(ids))).thenReturn(Mono.empty());
+
+        StepVerifier.create(useCase.saveCapacity(req))
+                .expectNext(saved)
+                .verifyComplete();
+
+        verify(technologyLinksPort).replaceAll(eq(99L), eq(ids));
+        verifyNoMoreInteractions(technologyLinksPort);
+    }
 
     // ---------- listItems: validaciones ----------
 
@@ -105,7 +136,6 @@ class CapacityUseCaseTest {
 
     @Test
     void listItems_buildsPageWithTechnologies_andSortsByNameAsc() {
-        // given
         var capA = new Capacity(1L, "A-cap", "desc", List.of());
         var capB = new Capacity(2L, "B-cap", "desc", List.of());
         when(capacityPersistencePort.findPage(0, 10, true)).thenReturn(Flux.just(capB, capA)); // llega desordenado
@@ -117,10 +147,8 @@ class CapacityUseCaseTest {
                 .thenReturn(Mono.just(List.of(new TechnologySummary(20L, "Python"),
                         new TechnologySummary(21L, "Go"))));
 
-        // when
         var mono = useCase.listItems(0, 10, true, false, true); // sort by name asc
 
-        // then
         StepVerifier.create(mono)
                 .assertNext(page -> {
                     assertThat(page.page()).isEqualTo(0);
@@ -147,7 +175,6 @@ class CapacityUseCaseTest {
 
     @Test
     void listItems_sortsByTechCount_desc() {
-        // given
         var capX = new Capacity(100L, "X", "desc", List.of());
         var capY = new Capacity(200L, "Y", "desc", List.of());
         when(capacityPersistencePort.findPage(0, 10, true)).thenReturn(Flux.just(capX, capY));
@@ -159,10 +186,8 @@ class CapacityUseCaseTest {
                 .thenReturn(Mono.just(List.of(new TechnologySummary(2L, "B"),
                         new TechnologySummary(3L, "C")))); // 2 techs
 
-        // when: sortByTechCnt=true, ascTechCount=false (desc)
         var mono = useCase.listItems(0, 10, true, true, false);
 
-        // then
         StepVerifier.create(mono)
                 .assertNext(page -> {
                     var items = page.items();
@@ -176,7 +201,6 @@ class CapacityUseCaseTest {
 
     @Test
     void listItems_sortsByTechCount_asc_andEmptyListHandled() {
-        // given
         var capEmpty = new Capacity(300L, "Empty", "desc", List.of());
         when(capacityPersistencePort.findPage(0, 5, true)).thenReturn(Flux.just(capEmpty));
         when(capacityPersistencePort.count()).thenReturn(Mono.just(1L));
@@ -184,10 +208,8 @@ class CapacityUseCaseTest {
         when(technologyLinksPort.listByCapacityId(300L))
                 .thenReturn(Mono.just(List.of())); // sin tecnologías
 
-        // when: sortByTechCnt=true ascTechCount=true
         var mono = useCase.listItems(0, 5, true, true, true);
 
-        // then
         StepVerifier.create(mono)
                 .assertNext(page -> {
                     assertThat(page.items()).hasSize(1);
@@ -197,31 +219,57 @@ class CapacityUseCaseTest {
                 .verifyComplete();
     }
 
+    // ---------- listItems: propagación de errores ----------
+
     @Test
-    void saveCapacity_passesTheExactIdsToReplaceAll() {
-        // given: sin duplicados para no disparar la validación
-        var ids = List.of(5L, 6L, 7L, 8L);
-        var req = new Capacity(null, "Data", "desc", ids);
-        var saved = new Capacity(99L, "Data", "desc", ids);
+    void listItems_propagatesError_whenFindPageFails() {
+        when(capacityPersistencePort.findPage(0, 2, true))
+                .thenReturn(Flux.error(new RuntimeException("db fail")));
+        // Aunque no se use por el error, la llamada se hace; stubearlo evita warnings
+        when(capacityPersistencePort.count()).thenReturn(Mono.just(0L));
 
-        when(capacityPersistencePort.saveCapacity(req)).thenReturn(Mono.just(saved));
-        when(technologyLinksPort.replaceAll(eq(99L), eq(ids))).thenReturn(Mono.empty());
+        StepVerifier.create(useCase.listItems(0, 2, true, false, true))
+                .expectErrorMatches(e -> e instanceof RuntimeException && e.getMessage().contains("db fail"))
+                .verify();
 
-        // when / then
-        StepVerifier.create(useCase.saveCapacity(req))
-                .expectNext(saved)
-                .verifyComplete();
+        verify(capacityPersistencePort).findPage(0, 2, true);
+        verify(capacityPersistencePort).count();        // <- ESTA línea es la clave
+        verifyNoMoreInteractions(capacityPersistencePort);
+        verifyNoInteractions(technologyLinksPort);
+    }
 
-        // verifica que se pasaron EXACTAMENTE esos IDs y ese capacityId
-        verify(technologyLinksPort).replaceAll(eq(99L), eq(ids));
-        verifyNoMoreInteractions(technologyLinksPort);
+
+    @Test
+    void listItems_propagatesError_whenListByCapacityFails() {
+        var cap = new Capacity(1L, "A", "d", List.of());
+        when(capacityPersistencePort.findPage(0, 1, true)).thenReturn(Flux.just(cap));
+        when(capacityPersistencePort.count()).thenReturn(Mono.just(1L));
+
+        when(technologyLinksPort.listByCapacityId(1L))
+                .thenReturn(Mono.error(new RuntimeException("tech svc error")));
+
+        StepVerifier.create(useCase.listItems(0, 1, true, false, true))
+                .expectErrorMatches(e -> e instanceof RuntimeException && e.getMessage().contains("tech svc error"))
+                .verify();
+    }
+
+    @Test
+    void listItems_propagatesError_whenCountFails() {
+        var cap = new Capacity(1L, "A", "d", List.of());
+        when(capacityPersistencePort.findPage(0, 1, true)).thenReturn(Flux.just(cap));
+        when(capacityPersistencePort.count()).thenReturn(Mono.error(new RuntimeException("count fail")));
+
+        when(technologyLinksPort.listByCapacityId(1L)).thenReturn(Mono.just(List.of()));
+
+        StepVerifier.create(useCase.listItems(0, 1, true, false, true))
+                .expectErrorMatches(e -> e instanceof RuntimeException && e.getMessage().contains("count fail"))
+                .verify();
     }
 
     // ---------- listCapacitiesSummary (coverage) ----------
 
     @Test
     void listCapacitiesSummary_returnsCapacitiesWithTheirTechnologies() {
-        // given
         Long bootcampId = 777L;
         var cap1 = new Capacity(1L, "BackEnd", "desc", List.of());
         var cap2 = new Capacity(2L, "FrontEnd", "desc", List.of());
@@ -240,10 +288,8 @@ class CapacityUseCaseTest {
                         new TechnologySummary(21L, "React")
                 )));
 
-        // when
         var mono = useCase.listCapacitiesSummary(bootcampId);
 
-        // then
         StepVerifier.create(mono)
                 .assertNext(list -> {
                     assertThat(list).hasSize(2);
@@ -270,7 +316,6 @@ class CapacityUseCaseTest {
 
     @Test
     void listCapacitiesSummary_handlesEmptyTechnologies() {
-        // given
         Long bootcampId = 888L;
         var cap = new Capacity(41L, "Data Eng", "desc", List.of());
 
@@ -280,10 +325,8 @@ class CapacityUseCaseTest {
         // Simulamos que el MS de tech devuelve Mono.empty()
         when(technologyLinksPort.listByCapacityId(41L)).thenReturn(Mono.empty());
 
-        // when
         var mono = useCase.listCapacitiesSummary(bootcampId);
 
-        // then
         StepVerifier.create(mono)
                 .assertNext(list -> {
                     assertThat(list).hasSize(1);
@@ -298,5 +341,38 @@ class CapacityUseCaseTest {
         verify(capacityPersistencePort).findByBootcampId(bootcampId);
         verify(technologyLinksPort).listByCapacityId(41L);
         verifyNoMoreInteractions(capacityPersistencePort, technologyLinksPort);
+    }
+
+    // ---------- deleteByIds ----------
+
+    @Test
+    void deleteByIds_happyPath_delegatesAndReturnsResult() {
+        var ids = List.of(10L, 11L, 12L);
+        var expected = new DeleteBatchResult(ids, List.of());
+
+        when(capacityPersistencePort.deleteByIds(ids)).thenReturn(Mono.just(expected));
+
+        StepVerifier.create(useCase.deleteByIds(ids))
+                .expectNext(expected)
+                .verifyComplete();
+
+        verify(capacityPersistencePort).deleteByIds(ids);
+        verifyNoMoreInteractions(capacityPersistencePort, technologyLinksPort);
+    }
+
+    @Test
+    void deleteByIds_propagatesError_fromPersistence() {
+        var ids = List.of(1L, 2L);
+        when(capacityPersistencePort.deleteByIds(ids))
+                .thenReturn(Mono.error(new RuntimeException("delete fail")));
+
+        StepVerifier.create(useCase.deleteByIds(ids))
+                .expectErrorMatches(e -> e instanceof RuntimeException &&
+                        e.getMessage().contains("delete fail"))
+                .verify();
+
+        verify(capacityPersistencePort).deleteByIds(ids);
+        verifyNoMoreInteractions(capacityPersistencePort);
+        verifyNoInteractions(technologyLinksPort);
     }
 }

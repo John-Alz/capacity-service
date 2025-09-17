@@ -29,4 +29,12 @@ public class CapacityBootcampHandler {
                         .bodyValue(new SuccessReponseDTO("Relacion Capacity Bootcamp Creado.", LocalDateTime.now()))));
     }
 
+    public Mono<ServerResponse> detachByBootcamp(ServerRequest request) {
+        Long bootcampId = Long.valueOf(request.pathVariable("bootcampId"));
+        return capacityBootcampServicePort.detachLinksByBootcamp(bootcampId)
+                .flatMap(result -> ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(result));
+    }
+
 }

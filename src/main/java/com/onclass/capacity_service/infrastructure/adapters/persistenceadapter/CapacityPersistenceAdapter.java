@@ -1,6 +1,7 @@
 package com.onclass.capacity_service.infrastructure.adapters.persistenceadapter;
 
 import com.onclass.capacity_service.domain.model.Capacity;
+import com.onclass.capacity_service.domain.model.DeleteBatchResult;
 import com.onclass.capacity_service.domain.spi.CapacityPersistencePort;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.entity.CapacityEntity;
 import com.onclass.capacity_service.infrastructure.adapters.persistenceadapter.mapper.CapacityEntityMapper;
@@ -10,7 +11,10 @@ import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @RequiredArgsConstructor
 public class CapacityPersistenceAdapter implements CapacityPersistencePort {
@@ -63,5 +67,26 @@ public class CapacityPersistenceAdapter implements CapacityPersistencePort {
     public Flux<Capacity> findByBootcampId(Long bootcampId) {
         return capacityRepository.findBootcampId(bootcampId)
                 .map(capacityEntityMapper::toModel);
+    }
+
+    @Override
+    public Mono<DeleteBatchResult> deleteByIds(List<Long> ids) {
+        List<Long> distinct = ids.stream().distinct().toList();
+        Set<Long> deleted = new HashSet<>();
+        List<Long> notFound = new ArrayList<>();
+        return Flux.fromIterable(distinct)
+                .flatMap(id ->
+                        capacityRepository.existsById(id)
+                                .flatMap(exist -> {
+                                    if (!exist) {
+                                        notFound.add(id);
+                                        return Mono.empty();
+                                    }
+                                    return capacityRepository.deleteById(id)
+                                            .then(Mono.fromRunnable(() -> deleted.add(id)));
+                                })
+                )
+                .then(Mono.fromSupplier(() ->
+                        new DeleteBatchResult(List.copyOf(deleted), List.copyOf(notFound))));
     }
 }

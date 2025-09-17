@@ -16,6 +16,8 @@ import reactor.core.publisher.Mono;
 
 import java.net.URI;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -85,5 +87,18 @@ public class CapacityHandler {
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(dtos));
 
+    }
+
+    public Mono<ServerResponse> deleteByIds(ServerRequest request) {
+        List<Long> ids = request.queryParam("ids")
+                .map(s -> Arrays.stream(s.split(","))
+                        .filter(p -> !p.isBlank())
+                        .map(Long::valueOf)
+                        .toList())
+                .orElse(List.of());
+        return capacityServicePort.deleteByIds(ids)
+                .flatMap(res -> ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(res));
     }
 }

@@ -4,6 +4,7 @@ import com.onclass.capacity_service.infrastructure.entrypoints.handler.CapacityH
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.server.RouterFunction;
+import org.springframework.web.reactive.function.server.RouterFunctions;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
@@ -15,7 +16,10 @@ public class CapacityRest {
 
     @Bean
     public RouterFunction<ServerResponse> capacityRoutes(CapacityHandler capacityHandler) {
-        return route(POST("/capacity"), capacityHandler::createCapacity);
+        return RouterFunctions.route()
+                .POST("/capacity", capacityHandler::createCapacity)
+                .DELETE("/capacities", capacityHandler::deleteByIds)
+                .build();
     }
 
     @Bean
